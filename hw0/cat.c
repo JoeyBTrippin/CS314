@@ -12,17 +12,17 @@ int main(int argc, char* argv[]){
 		return 0;
 	
 	FILE* file;
-	char line[256];
+	char filename[256];
+	char ch;
 	for(int i = 1; i < argc; i++){
-		char* filename = argv[i];
 		
-		file = fopen(filename, "r");
+		file = fopen(argv[i], "r");
 		if (file == NULL){
-			printf("./cat: %s: No such file or directory\n", filename);
+			fprintf(stderr, "./cat: %s: No such file or directory\n", argv[i]);
 			continue;
 		}
-		while(fgets(line, sizeof(line), file))
-			printf("%s", line);
+		while((ch = fgetc(file)) != EOF)
+			fprintf(stdout, "%c", ch);
 
 		fclose(file);
 	}
