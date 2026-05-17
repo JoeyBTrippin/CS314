@@ -3,5 +3,5 @@ all:
 cat: 
 	gcc cat.c -o cat
 
-clear:
+clean:
 	rm cat
