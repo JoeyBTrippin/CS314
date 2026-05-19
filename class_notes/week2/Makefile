@@ -10,9 +10,10 @@ remakeall:
 
 shell:
 	gcc shell.c -o shell
-
+	gcc child.c -o child
 clean:
 	rm shell
+	rm child
 	rm coordsread
 	rm coordswrite
 	rm outfile
