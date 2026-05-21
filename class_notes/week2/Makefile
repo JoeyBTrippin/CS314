@@ -11,9 +11,16 @@ remakeall:
 shell:
 	gcc shell.c -o shell
 	gcc child.c -o child
+stack:
+	gcc stack.c -o stack
+
+threads:
+	gcc threads.c -o threads
 clean:
 	rm shell
 	rm child
 	rm coordsread
 	rm coordswrite
 	rm outfile
+	rm stack
+	rm threads
