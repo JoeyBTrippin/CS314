@@ -8,3 +8,10 @@ Description: This directory contains multiple programs related to HW 1.
     This file also contains a makefile to compile executables. Simple type
     "make #", where # is the problem you wish to compile or "make all" to compile
     all files.
+
+Problem 1: The inicial value given to the varible is the same in the child 
+    process. However, when the value of the variable is changed in both 
+    parent and child, the change only occures in the respective process.
+
+Problem 2:
+
