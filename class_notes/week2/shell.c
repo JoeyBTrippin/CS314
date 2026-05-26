@@ -14,7 +14,7 @@ int main() {
 		i=999999;
 
 	if (pid == 0)
-		execv("./child", NULL);
+		execv("/user/bin/ls", NULL);
 
 	printf("hello %d %d %p\n", pid, i, &i);
 
