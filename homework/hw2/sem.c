@@ -4,17 +4,18 @@
 #include <semaphore.h>
 
 #define BUF_SIZE 8
+#define MAX_ITEMS 5 // how many iterations are wanted *(num of threads)
 
 int buffer[BUF_SIZE];
 int in = 0, out = 0;
-
+int count = 0;
 sem_t mutex, full, empty;
 
 void* producer(void* arg) {
-	long id = (long)arg;
 	int count = 0;
+	long id = (long)arg;
 
-	while(count < 10) {
+	while(count < MAX_ITEMS) {
 		int item = rand() % 10; // produce random numbers between 0-9
 	
 	sem_wait(&empty);
@@ -23,34 +24,38 @@ void* producer(void* arg) {
 	buffer[in] = item;
 	printf("(P%ld) produced %d\n", id, item);
 	in = (in + 1) % BUF_SIZE;
-
+	
 	sem_post(&mutex);
 	sem_post(&full);
-
-	count++;
+	
+	count ++;
 	}
+	
+	pthread_exit(NULL);
 
 }
 
 void* consumer(void* arg) {
-	long id = (long)arg;
 	int count = 0;
 
-	while (count < 10) {
+	long id = (long)arg;
+
+	while (count < MAX_ITEMS) {
 		sem_wait(&full);
 		sem_wait(&mutex);
 
 		int item = buffer[out];
 		printf("\t (C%ld) consumed %d\n", id, item);
 		out = (out + 1) % BUF_SIZE;
-
+		
 		sem_post(&mutex);
 		sem_post(&empty);
 
-
+		count++;
 
 	}
 
+	pthread_exit(NULL);
 }
 
 int main (int argc, char* charv[]) {
@@ -73,5 +78,4 @@ int main (int argc, char* charv[]) {
 		pthread_create(&cons[i], NULL, consumer,(void*) i);
 
 	pthread_exit(0);
-	return 0;
 }

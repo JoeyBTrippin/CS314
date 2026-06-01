@@ -2,10 +2,10 @@ all:
 	gcc sem.c -o sem
 	gcc pthread.c -o pthread
 
-semmain:
+sem:
 	gcc sem.c -o sem
 
-pmain:
+pthread:
 	gcc pthread.c -o pthread
 
 clean:
