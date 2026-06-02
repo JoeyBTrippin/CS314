@@ -5,6 +5,9 @@ Description: HW2 Producer/Consumer implementation as described in assignment.
 	Each file is a seperate solution meant to meet the three different
 	techniques ask for.
 
+String to Produce: "I am a servant of the Secret Fire, wielder of the flame of
+	 Anor. You cannot pass."
+
 sem.c: uses semaphores as provided by semaphore.h
 	COMPILE: "make sem"
 	RUN: "./sem p c", replacing 'p' and "c" with number of
