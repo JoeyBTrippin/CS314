@@ -1,33 +1,53 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include "my_sem.h"
 
 #define BUF_SIZE 8
-#define MAX_ITEMS 5 // how many iterations are wanted *(num of threads)
+
+char items[81] =
+"I am a servant of the Secret Fire, wielder of the flame of Anor. You cannot pass.";
 
 int buffer[BUF_SIZE];
 int in = 0, out = 0;
+int p_index = 0;
+int P = 1, C = 1;
 Sem mutex, full, empty;
 
 void* producer(void* arg) {
-	int count = 0;
 	long id = (long)arg;
 
-	while(count < MAX_ITEMS) {
-		int item = rand() % 10; // produce random numbers between 0-9
+	while(1) {
 	
-	sem_wait_custom(&empty);
-	sem_wait_custom(&mutex);
+		sem_wait_custom(&empty);
+		sem_wait_custom(&mutex);
+	
+		if (p_index >= sizeof(items)) {
+			sem_signal_custom(&mutex);
+			break;
+		}
 
-	buffer[in] = item;
-	printf("(P%ld) produced %d\n", id, item);
-	in = (in + 1) % BUF_SIZE;
+		buffer[in] = items[p_index];
+		p_index++;
+		printf("(P%ld) produced %c\n", id, buffer[in]);
+		in = (in + 1) % BUF_SIZE;
+
+		sem_signal_custom(&mutex);
+		sem_signal_custom(&full);
 	
-	sem_signal_custom(&mutex);
-	sem_signal_custom(&full);
-	
-	count ++;
+	}
+
+	for (int i = 0; i < C; i++) {
+		sem_wait_custom(&empty);
+		sem_wait_custom(&mutex);
+
+		buffer[in] = '\0';
+		in = (in + 1) % BUF_SIZE;
+
+		sem_signal_custom(&mutex);
+		sem_signal_custom(&full);
+
 	}
 	
 	pthread_exit(NULL);
@@ -35,22 +55,24 @@ void* producer(void* arg) {
 }
 
 void* consumer(void* arg) {
-	int count = 0;
 
 	long id = (long)arg;
 
-	while (count < MAX_ITEMS) {
+	while (1) {
 		sem_wait_custom(&full);
 		sem_wait_custom(&mutex);
 
-		int item = buffer[out];
-		printf("\t (C%ld) consumed %d\n", id, item);
+		if (buffer[out] == '\0') {
+			sem_signal_custom(&mutex);
+			sem_signal_custom(&empty);
+			pthread_exit(NULL);
+		}
+
+		printf("\t (C%ld) consumed %c\n", id, buffer[out]);
 		out = (out + 1) % BUF_SIZE;
 		
 		sem_signal_custom(&mutex);
 		sem_signal_custom(&empty);
-
-		count++;
 
 	}
 
@@ -58,7 +80,6 @@ void* consumer(void* arg) {
 }
 
 int main (int argc, char* charv[]) {
-	int P, C;
 	if (argc == 3) {
 		P = atoi( charv[1]);
 		C = atoi(charv[2]);
@@ -75,6 +96,12 @@ int main (int argc, char* charv[]) {
 
 	for (int i = 0; i < C; i++)
 		pthread_create(&cons[i], NULL, consumer,(void*) i);
+	
+	for (int i = 0; i < P; i++) 
+		pthread_join(prod[i], NULL);
+
+	for (int i = 0; i < C; i++)
+		pthread_join(cons[i], NULL);
 
 	pthread_exit(0);
 }
