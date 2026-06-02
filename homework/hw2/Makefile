@@ -1,6 +1,7 @@
 all:
 	gcc sem.c -o sem
 	gcc pthread.c -o pthread
+	gcc my_sem.c my_sem.h -o my_sem
 
 sem:
 	gcc sem.c -o sem

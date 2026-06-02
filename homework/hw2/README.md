@@ -20,5 +20,6 @@ pthread: replaces mutex semaphore with pthread_mutex.
 
 my_sem.c: uses my own self defined semaphore.
 	COMPILE: "make my_sem"
-	RUN" "./my_sem p c", replacing 'p' and 'c' with number of
+	RUN: "./my_sem p c", replacing 'p' and 'c' with number of
 		producers/consumers respectively.
+	my_sem.h: contains the implementation file of my custom semaphore.
