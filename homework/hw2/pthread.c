@@ -5,8 +5,8 @@
 
 #define BUF_SIZE 8
 
-char items[81] =
-"I am a servant of the Secret Fire, wielder of the flame of Anor. You cannot pass.";
+char items[] =
+"All we have to decide is what to do with the time that is given.";
 
 int buffer[BUF_SIZE];
 int in = 0, out = 0;
