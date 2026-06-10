@@ -6,12 +6,9 @@
 #define NUM_FASTBINS 4
 #define NUM_REGULAR_BINS 4
 
-void* my_malloc(size_t size) {
+void* my_malloc (size_t size);
+void my_free (void* ptr);
 
+void dump_bin_statistics(void);
 
-}
-
-void my_free(void *ptr) {
-
-
-}
+#endif
