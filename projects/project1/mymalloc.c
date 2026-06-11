@@ -9,8 +9,6 @@ typedef struct BlockHeader {
 } BlockHeader;
 
 #define HEADER_SIZE sizeof(BlockHeader)
-#define PAGE_SIZE 4096
-#define MIN_SPLIT 16
 
 static BlockHeader* fastbins[NUM_FASTBINS] = {NULL};
 static BlockHeader* regbins[NUM_REGULAR_BINS] = {NULL};
@@ -34,17 +32,41 @@ static int index_regbin (size_t size) {
 	return -1;
 }
 
+// HELPER: remove 
+static void rmove_from_bin (BlockHeader** bin, BlockHeader* block {
+
+}
+
 void* my_malloc (size_t size) {
 	if (size == 0) return NULL;
 	
 	// FIND: size needed
-	size_t total = (size + 7) & ~7;
+	size_t total_size = (size + HEADER_SIZE + 7) & ~7;
 	
+	// FASTBIN path
 	if (total <= 40) {
-		int fidx
-	}
+		int index = index_fastbin(total_size);
 
+		if (fastbin[index]) { // bin is not empty
+			BlackHeader* block = fastbin[index];
+			fastbin[index] = blk->next;
+			block->is_free = 0;
+			return (char*)block + HEADER_SIZE;
+		} // fall through to regbin
+	}  
+
+	// REGULARBIN path
+	int index = index_regbin(total_size);
+	BlockHeader* cur = regbins[index];
+
+	while (cur && cur->size < total_size) // FIND: appropriate location
+		cur = cur->next;
+	
+	if (cur) { // location not empty
+		
+	}
 }
+
 
 void my_free (void* ptr) {
 	if (!ptr) return;
@@ -53,7 +75,7 @@ void my_free (void* ptr) {
 	h->is_free = 1;
 
 	if (h->size <= 40) {
-		int
+		
 	}
 }
 
