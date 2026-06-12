@@ -32,9 +32,18 @@ static int index_regbin (size_t size) {
 	return -1;
 }
 
-// HELPER: remove 
-static void rmove_from_bin (BlockHeader** bin, BlockHeader* block {
-
+// HELPER: remove block from bin
+static void remove_from_bin (BlockHeader** bin, BlockHeader* block) {
+	if (block->prev) // previous block not empty
+		block->prev->next = block->next;
+	else // previous block empty
+		*bin = blk->next;
+	
+	if (block->next) // next block not empty
+		block->next->prev = blk->prev;
+	
+	// Clear block
+	block->next = block->previous = NULL;
 }
 
 void* my_malloc (size_t size) {
