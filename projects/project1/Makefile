@@ -1,5 +1,5 @@
 all:
-	gcc mymalloc.c mymalloc.h -o my.out
+	gcc mymalloc.c mymalloc.h -o a.out
 
 clear:
-	rm my.out
+	rm a.out
