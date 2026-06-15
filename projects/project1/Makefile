@@ -1,5 +1,5 @@
 all:
-	gcc mymalloc.c mymalloc.h -o a.out
-
-clear:
-	rm a.out
+	gcc -Wall -Werror -std=gnu99 mymalloc.c mymalloc.h -o mymalloc
+clean:
+	rm output.txt
+	rm mymalloc 
