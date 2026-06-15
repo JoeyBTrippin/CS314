@@ -95,6 +95,7 @@ static void insert_sorted (BlockHeader** bin, BlockHeader* block) {
 
 static BlockHeader* request_from_os (size_t total_size) {
 	size_t alloc_size = ((total_size+ HEADER_SIZE + PAGE - 1)/PAGE)*PAGE;
+//	size_t alloc_size = total_size + HEADER_SIZE;
 
 	void* region = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, 
 		MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -114,6 +115,7 @@ static BlockHeader* request_from_os (size_t total_size) {
 	head->is_free = 0;
 	head->next = head->prev = NULL;
 	
+//	return head;
 	// DEBUG
 //	printf("[MMAP] region=%p alloc_size=%zu block_size = %zu\n",
 //		region, alloc_size, total_size);
@@ -122,25 +124,19 @@ static BlockHeader* request_from_os (size_t total_size) {
 	size_t leftover = alloc_size - total_size - HEADER_SIZE;
 
 	if (leftover >= MIN_SPLIT) {
-		BlockHeader* free_block = (BlockHeader*)((char*)region +total_size);
+		BlockHeader* free_block = (BlockHeader*)((char*)head +total_size);
 		free_block->size = leftover;
 		free_block->is_free = 1;
 		free_block->next = free_block->prev = NULL;
 		
-		if (free_block->size <= 40) { // FASTBIN
-			int idx = index_fastbin(free_block->size);
-			if (idx != -1){
-				free_block->next = fastbins[idx];
-				fastbins[idx] = free_block;
-			} else {
-				int idx = index_regbin(free_block->size);
-				insert_sorted(&regbins[idx], free_block);
-			}
-		} else { // REGBIN
+		int idx = index_fastbin(free_block->size);
+		if (idx != -1){
+			free_block->next = fastbins[idx];
+			fastbins[idx] = free_block;
+		} else {
 			int idx = index_regbin(free_block->size);
 			insert_sorted(&regbins[idx], free_block);
 		}
-		
 		// DEBUG
 //		printf("[MMAP SPLIT] free_block=%p size=%zu\n", free_block, leftover);
 	}
@@ -192,27 +188,17 @@ void* my_malloc (size_t size) {
 			split->size = leftover;
 			split->is_free = 1;
 			split->next = split->prev = NULL;
-			
-			if (split->size <= 40) { // can fit in fastbin
-				int idx = index_fastbin(split->size);
-				if (idx != -1) { // size match
-					split->next = fastbins[idx];
-					fastbins[idx] = split;
-				} else { // regbin
-					int idx = index_regbin(split->size);
-					insert_sorted(&regbins[idx], split);
-				}
+			int idx = index_fastbin(split->size);		
+			if (idx != -1) { // size match
+				split->next = fastbins[idx];
+				fastbins[idx] = split;
+			} else { // regbin
+				int idx = index_regbin(split->size);
+				insert_sorted(&regbins[idx], split);
 			}
 
-			// DEBUG
-//			printf("[SPLIT] original=%p orig_size=%zu alloc=%zu leftover=%zu split=%p\n",
-//				cur, cur->size, total_size, leftover, split);
-
 			cur->size = total_size;
-
 		}
-		// DEBUG
-//		printf("[ALLOC REGBIN] block=%p size=%zu\n", cur, cur->size);
 
 		return (char*)cur + HEADER_SIZE;
 	}
@@ -270,6 +256,8 @@ void my_free (void* ptr) {
 
 	int index = index_regbin(block->size);
 	insert_sorted(&regbins[index], block);
+	 
+	return;
 }
 
 void dump_bin_statistics (void) {
@@ -322,97 +310,117 @@ void dump_bin_statistics (void) {
 		printf("\t\t total blocks: %d\n", count);
 	}
 
-
-/*
-	printf("Fastbins:\n");
-	for (int i = 0; i < NUM_FASTBINS; i++) {
-		int count = 0;
-		BlockHeader* cur = fastbins[i];
-		while (cur) {
-			count++;
-			cur = cur->next;
-		}
-		printf( "\tFastbin %d: %d blocks\n", i, count);
-	}
-
-	printf("Regular bins:\n");
-	for (int i = 0; i < NUM_REGULAR_BINS; i++) {
-		int count = 0;
-		BlockHeader* cur = regbins[i];
-		while(cur){
-			count++;
-			cur = cur->next;
-		}
-		printf("\tRegular bin %d: %d blocks\n", i, count);
-	}
-*/
 }
 
-int main () {
-	// output to file
-	FILE *fp = freopen("output.txt", "w", stdout); // Redirect stdout
-	if (fp == NULL) {
-		perror("Failed to redirect stdout");
-		return 1;
-	}
-
-	printf("----------FAST BIN TEST--------\n");
-	printf("ALLOCATE: a(1), b(2) c(8)\n");
-	void* a = my_malloc(1);
-	void* b = my_malloc(2);
-	void* c = my_malloc(8);
-	dump_bin_statistics();
+int test () {
 	
-	printf("FREE: a(1), b(2), c(8)\n");
+	printf("--------FAST BIN TEST--------\n");
+	printf("\nALLOCATE: a(1), b(8) c(16)");
+	void* a = my_malloc(1);
+	void* b = my_malloc(8);
+	void* c = my_malloc(16);
+	dump_bin_statistics();
+
+	printf("\nFREE: a(1), b(8), c(16)");
 	my_free(a);
 	my_free(b);
 	my_free(c);
 	dump_bin_statistics();
-	
-	printf("\n---------REGULARE BIN TEST---------\n");
-	printf("ALLOCATE: r1(200), r2(100), r3(500)\n");
-	void* r1 = my_malloc(200); // 48-128 bin
-	void* r2 = my_malloc(100); // 129-512 bin
-	void* r3 = my_malloc(500); // 129-512 bin
+	printf("only 'a'and 'b' go to fast bin\n");
+
+	printf("\n-----LIFO REUSE-----\n");
+
+	printf("\nALLOCATE: r1(1), r2(1), r3(1)");
+	void* r1 = my_malloc(1);
+	void* r2 = my_malloc(1);
+	void* r3 = my_malloc(1);
+
+	printf("\nFREE: r1(1)");
+	my_free(r1);
 	dump_bin_statistics();
 	
-	printf("FREE: r1(200), r2(100), r3(500)\n");
-	my_free(r1);
+	printf("\nFREE: r2(1)");
 	my_free(r2);
+	dump_bin_statistics();
+
+	printf("\nFREE: r3(1)");
 	my_free(r3);
 	dump_bin_statistics();
+	printf("freed bins are placed in front of bin\n");
+	
+	printf("\nALLOCATE: r1(1)");
+	r1 = my_malloc(1);
+	dump_bin_statistics();
+	printf("\nALLOCATE: r2(1)");
+	r2 = my_malloc(1);
+	dump_bin_statistics();
+	printf("\nALLOCATE: r3(1)");
+	printf("allocated space is taken from front of bin\n");
+	printf("when fast bin not available, takes from regbin before\n");
+	printf("allocating new memory.\n");
+	
 
+	printf("\n\n\n--------REGULAR BIN--------\n");
+	printf("-----SORTED TEST-----\n");
+	
+	printf("ALLOCATE: p1(100), p2(80), p3(40), p4(120), p5(20)\n");
+	void* p1 = my_malloc(100);
+	void* p2 = my_malloc(80);
+	void* p3 = my_malloc(40);
+	void* p4 = my_malloc(120);
+	void* p5 = my_malloc(20);
+	
+	printf("FREE: p1(100), p2(80), p3(40), p4(120), p5(20)\n");
+	my_free(p1);
+	my_free(p2);
+	my_free(p3);
+	my_free(p4);
+	my_free(p5);
+	dump_bin_statistics();
+	printf("dispite allocation not being in size order, regbin is sorted by size\n");
 
-	printf("\n--------SPLIT TEST--------\n");
+	
+	printf("\n\n-----SPLITTING/COALESCING-----\n");
 	printf("ALLOCATE: s1(3000)\n");
 	void* s1 = my_malloc(3000);
 	dump_bin_statistics();
-
+	printf("total allocated size = 3040\n");
+	printf("leftover goes to regbin[2])\n");
+	
 	printf("FREE: s1(3000)\n");
 	my_free(s1);
 	dump_bin_statistics();
+	printf("once freed it is coalesced\n");
 
-	printf("\n--------COALESCING TEST--------\n");
-	printf("ALLOCATE: c1(3000), c2(3000)\n");
-	void* c1 = my_malloc(3000);
-	void* c2 = my_malloc(3000);
+	printf("ALLOCATE: s2(4048)\n");
+	void* s2 = my_malloc(4000);
+	printf("FREE: s2(4048)\n");
+	my_free(s2);
 	dump_bin_statistics();
-
-	printf("FREE: c1(3000), c2(3000)\n");
-	my_free(c1);
-	my_free(c2);
-	dump_bin_statistics();
-
-	printf("\n--------FASTBIN REUSE TEST--------\n");
-	printf("ALLOCATE: f1(1), f2(8)\n");
-	void* f1 = my_malloc(1);
-	void* f2 = my_malloc(8);
-	dump_bin_statistics();
-	
-	my_free(f1);
-	my_free(f2);
-	dump_bin_statistics();
-	fclose(fp);
+	printf("split to fast bin");
 
 	return 0;
+}
+
+int main () {
+	/* DO NOTE CHANGE */
+	// redurecting stdout to output.txt
+	int saved_stdout = dup(fileno(stdout));
+	FILE *fp = freopen("output.txt", "w", stdout); 
+	if (fp == NULL) {
+		perror("Failed to redirect stdout");
+		return 1;
+	}
+	test(); // Run test code
+	fflush(stdout);
+	dup2(saved_stdout, fileno(stdout));
+	close(saved_stdout);
+	//  Standard out restored 
+	
+	/* Below is for instructer use */
+	
+
+	
+	return 0;
+
 }
