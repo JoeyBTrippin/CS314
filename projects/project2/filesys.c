@@ -18,13 +18,16 @@
 //--------------------
 // Structures 
 //--------------------
-typedef struct {
+
+// Struct for Superblock
+typedef struct { 
 	int total_blocks;
 	int inode_start;
 	int data_start;
 } Superblock;
 
-typedef struct {
+// Struct for Inode
+typedef struct { 
 	int used;
 	int type;
 	int size;
@@ -32,7 +35,8 @@ typedef struct {
 	int indirect;
 } Inode;
 
-typedef struct {
+// Struct for Directory Entry
+typedef struct { 
 	int inode;
 	char name[MAX_FILENAME];
 }DirEntry;
@@ -41,28 +45,34 @@ typedef struct {
 //--------------------
 // Globals
 //--------------------
-FILE *fs;
-Superblock sb;
-int* bitmap;
-Inode *inodes;
+FILE *fs; // Filesystem
+Superblock sb; // Superblock
+int* bitmap; // Free blocks
+Inode *inodes; //Inodes
 
 
 //--------------------
 // Helpers
 //--------------------
 
-// Used to exit if an error in encountered
+// Error handler: send message and exit
 void die (const char *msg) {
-	printf("Error: %s\n"), msg);
+	printf("Error: %s\n", msg);
 	exit(1);
 }
 
+// read from filesystem
 void fs_read (void* buf, int block) {
-
+	// Set file pointer. block * BLOCK_SIZE = offset
+	fseek(fs, block * BLOCK_SIZE, SEEK_SET);
+	fread(buf, BLOCK_SIZE, 1, fs); // Read to buf
 }
 
+// write to file system
 void fs_write (void* buf, int block) {
-
+	// Set file pointer 
+	fseek(fs, block * BLOCK_SIZE, SEEK_SET);
+	fwrite(buf, BLOCK_SIZE, 1, fs); // Write to location
 }
 
 int alloc_block() {
@@ -90,14 +100,14 @@ int alloc_inode() {
 //--------------------
 // Formatting
 //--------------------
-
+// Used when initializing the file system
 void format_fs() {
-	// Initialize Superblock
+	// Set values of superblock members
 	sb.total_blocks = MAX_BLOCKS;
 	sb.inode_start = 1;
 	sb.data_start = 1 + (MAX_INODES * sizeof(Inode))/BLOCKSIZE + 1;
 	
-	// Allocate memmory
+	// Reserve memmory for Free Blocks and Inodes
 	bitmap = calloc(sb.total_blocks, 1);
 	inodes = calloc(MAX_INODES, sizeof(Inode);
 
@@ -107,7 +117,7 @@ void format_fs() {
 	inodes[root].size = 0;
 
 	// Write structures
-	fs_write(&sb, 0); // Write SUPERBLOCK at start		FINISH fs_write()
+	fs_write(&sb, 0); // Write SUPERBLOCK at start
 	fs_write(bitmap, 1); // Write BITMAP
 	fseek(fs, sb.inode_start * BLOCK_SIZE, SEEK_SET); // File pointer -> IDONE start
 	fwrite(inodes, sizeof(Inode), MAX_INODES, fs); // Write Inode table
@@ -119,13 +129,19 @@ void format_fs() {
 //--------------------
 
 int main (int argc, char* argv[]) {
+	// FINISH: variable length input code
+	//--------------------
 	if (argc < 4) die ("Use: ./filsys -x path -f file\n");
 	
+	if (argc == 4) {
+		char* 
+	}
 	// Grab command, path, and file
 	char* cmd = argv[1];
 	char* path = argv[2];
-	char *file = argv[3];
+	char *file = argv[4];
 	
+	//--------------------
 	// Atempt to open existing file for read/write in binary
 	if (!(fs = fopen(file, "rb+"))) { 
 		// File DOES NOTE exist. Create file.
@@ -133,6 +149,8 @@ int main (int argc, char* argv[]) {
 		ftruncate(fileno(fs), FS_SIZE);
 		format_fs(); // Formating function call			// FINISH 
 	}
+
+
 
 	return 0;
 }
