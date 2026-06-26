@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+// #include <stdint.h>
 
 #define FS_SIZE (10 * 1024 * 1024) // 10MB
 #define BLOCK_SIZE 512
@@ -75,11 +75,11 @@ void fs_write (void* buf, int block) {
 	fwrite(buf, BLOCK_SIZE, 1, fs); // Write to location
 }
 
-int alloc_block() {
+int alloc_block() {		// FINSIH
 
 }
 
-void free_block (int b) {
+void free_block (int b) {		// FINISH	
 
 }
 
@@ -118,9 +118,158 @@ void format_fs() {
 
 	// Write structures
 	fs_write(&sb, 0); // Write SUPERBLOCK at start
-	fs_write(bitmap, 1); // Write BITMAP
+	fs_write(bitmap, 1); // Write FREE_BLOCKS
 	fseek(fs, sb.inode_start * BLOCK_SIZE, SEEK_SET); // File pointer -> IDONE start
 	fwrite(inodes, sizeof(Inode), MAX_INODES, fs); // Write Inode table
+}
+
+
+//--------------------
+// Directory operations
+//--------------------
+// Searches the inode table for a file with a matching name and returns its inode index`
+int find_in_dir(int dir_inode, const char* name) {
+	Inode *d = &inodes[dir_inode];
+	DirEntry entries[BLOCK_SIZE / sizeof(DirEntry)];
+
+	for (int i = 0; i < MAX_INODES; i++) {
+		if (d->direct[i] == -1) continue;
+		fs_read(entries, d->direct[i]);
+
+		for (int j = 0; j < BLOCK_SIZE /sizeof(DirEntry); j++) {
+			if ( (entries[j].inode != -1 && (strcmp(entries[j].name, name) == 0) )
+				return entries[j].inode;
+		}
+	}
+	return -1;
+}
+
+void add_to_dir(int dir_inode, int child_inode, const char* name) {
+	Inode* d = &inoes[dir_inode];
+	DirEntry entries[BLOCK_SIZE \ sizeof(DirEntry)];
+	
+	for (int i = 0; i < MAX_INODES; i++) {
+		if (d->direct[i] == -1) {
+			d->direct[i] = alloc_block();
+			memset(entries, MAX_INODES, sizeof(entries));
+			strcpy(entries[o].name, name);
+			entries[0].inode = child_inode;
+			fs_write(entries, d->direct[i]);
+			return;
+		}
+
+		fs_read(entries, d->direct[i]);
+		for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
+			if (entries[j].inode == -1) {
+				strcpy(entries[j].name, name);
+				entries[j].inode = child_inode;
+				fs_write(entries, d->direct[i]);
+				return;
+			}
+		}
+	}
+	die ("Directory full");
+}
+
+
+//--------------------
+// Path resolution
+//--------------------
+int resolve_path(const char* path, int create_dirs) {
+	char temp[MAX_FILENAME];
+	strcpy(temp, path);
+
+	char* token = strtok(temp, "/");
+	int cur = 0; // root inode
+	
+	while (token) {
+		int next = find_in_dir(cur, token);
+		
+		if (next == -1) {
+			// are we
+			if (!create_dirs)
+				return -1;
+
+			int newinode == alloc_inode();
+			inodes[newinode].type = TYPE_DIR;
+			memset(inodes[newinode].direct, -1, sizeof(inodes[newinode].direct));
+			add_to_dir(cur, newinode, token);
+			next = newinode;
+		}
+
+		cur = next;
+		token = strtok(NULL, "/");
+	}
+
+	return cur;
+}
+
+
+//--------------------
+// List
+//--------------------
+void list_dir(int inode, int depth) {
+	Inode *d == &inodes[inode]; // first inode
+	DirEntry entries[BLOCK_SIZE / sizeof(DirEntry)]; // array to hold directories
+	
+	// loop through directories
+	for (int i = 0; i < MAX_INODES; i++) {
+		if (d->direct[i] == -1) continue; // doesn't exist, skip
+		// read current directory
+		fs_read(entries, d->direct[i]);
+		
+		// loop through current directory
+		for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
+			if (entries[j] == -1) continue; // doesn't exist, skip
+			// formating depth spacing
+			for (int k = 0; k < depth; k++) 
+				printf(" ")
+			printf("%s\n", entries[j].name); // print entry
+			
+			// if entry is anothe directory
+			if (inodes[entries[j].inode].type == TYPE_DIR)
+				// recurrsivly call to list this directory
+				list_dir(entries[j].inode, depth + 1);
+		}
+	}
+}
+
+
+//--------------------
+// Add File
+//--------------------
+void add_file(const char* host_path, const char* fs_path) {
+	// Open file to be added
+	FILE* f = fopen(host_path, "rb");
+	if (!f) die("Cannot open input file");
+	
+	// read first file name off path
+	char dirpath[MAX_FILENAME];
+	strcpy(dirpath, fs_path)
+	char* filename = strrchar(dirpath, '/');
+	if (!filename) die("Invalid paht");
+	*filename = 0;
+	filename++;
+
+	int dir_inode = resolve_path(dirpath, 1);		// FINISH
+
+}
+
+
+//--------------------
+// Extract File
+//--------------------
+void extract_fil(const char* fs_path) {		//FINISH	
+
+}
+
+
+
+//--------------------
+// Remove file
+//--------------------
+void remove_file(const char* fs_path) {		// FINSIH
+
 }
 
 
@@ -129,28 +278,60 @@ void format_fs() {
 //--------------------
 
 int main (int argc, char* argv[]) {
-	// FINISH: variable length input code
-	//--------------------
+	// At leadt 4 arguments will be required
 	if (argc < 4) die ("Use: ./filsys -x path -f file\n");
 	
+	// Read arguments
 	if (argc == 4) {
-		char* 
+		char* cmd = argv[1];
+		char* path == NULL; 
+		char* fsfile = argv[3];
+	} else {
+		char* cmd = argv[1];
+		char* path = argv[2];
+		char* fsfile = argv[4];
 	}
-	// Grab command, path, and file
-	char* cmd = argv[1];
-	char* path = argv[2];
-	char *file = argv[4];
-	
-	//--------------------
+
 	// Atempt to open existing file for read/write in binary
-	if (!(fs = fopen(file, "rb+"))) { 
+	if (!(fs = fopen(fsfile, "rb+"))) { 
 		// File DOES NOTE exist. Create file.
-		fs = open(file, "wb+");
+		fs = open(fsfile, "wb+");
 		ftruncate(fileno(fs), FS_SIZE);
-		format_fs(); // Formating function call			// FINISH 
+		format_fs(); // Formating function call 
+	}
+	
+	// allocate space for file system data
+	bitmap = calloc(MAX_BLOCKS, 1);
+	inodes = calloc(MAX_INODES, sizeof(Inode));
+
+	// Load file system data
+	fs_read(&sb, 0);
+	fs_read(bitmap, 1);
+	fseek(fs, sb.inodes_start * BLOCK_SIZE, SEEK_SET);
+	fread(inodes, sizeof(Inode), MAX_INODES, fs);
+	
+	// String compare command to determine action
+	if (strcmp(cmd, "-l") == 0) {
+		list_dir(0, 0);
+	}
+	else if (strcmp(cmd, "-a")) {
+		add_file(path, path);
+	}
+	else if (strcmp(cmd, "-e")) {
+		extract_file(path);
+	}
+	else if (strcmp(cmd, "-r")) {
+		remove_file(path);
 	}
 
+	// Save file data
+	fs_write(&sb, 0);
+	fs_write(bitmap, 1);
+	fseek(fs, sb.inodes_start * BLOCK_SIZE, SEEK_SET);
+	fwrite(inodes, sizeof(Inode), MAX_INODES, fs);
 
+	// close file system
+	fclose(fs);
 
 	return 0;
 }
