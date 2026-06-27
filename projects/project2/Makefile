@@ -1,5 +1,5 @@
 all:
-	gcc -Wall filesys.c -o filesys
+	gcc -Wall filefs.c -o filefs
 
 clean:
-	rm filesys
+	rm filefs
