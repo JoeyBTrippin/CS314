@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 // Constant Sizes
-#define FS_SIZE (10 * 1024 * 1024) // 10MB
+#define FS_SIZE (10 * 1024 *1024) // 10MB
 #define BLOCK_SIZE 512
 #define MAX_BLOCKS (FS_SIZE / BLOCK_SIZE)
 #define MAX_INODES 100
@@ -48,7 +48,7 @@ typedef struct {
 //--------------------
 FILE* fs; // Filesystem
 Superblock sb; // Superblock
-int* bitmap; // Free blocks
+unsigned char* bitmap; // Free blocks1 byte per block
 Inode *inodes; //Inodes
 
 
@@ -62,21 +62,37 @@ void die (const char *msg) {
 	exit(1);
 }
 
-// Read from filesystem
+// Read from filesystem: read to buf, at block#
 void fs_read (void* buf, int block) {
 	// Set file pointer: block * BLOCK_SIZE = offset
 	fseek(fs, block * BLOCK_SIZE, SEEK_SET);
 	fread(buf, BLOCK_SIZE, 1, fs); // Read to buf
 }
 
-// write to file system
+// write to file system: read from buf, at block#
 void fs_write (void* buf, int block) {
 	// Set file pointer: block * BLOCK_SIZE = offset 
 	fseek(fs, block * BLOCK_SIZE, SEEK_SET);
 	fwrite(buf, BLOCK_SIZE, 1, fs); // Write to location
 }
 
-// Allocate a free block from free_block
+int bitmap_blocks() {											// CHECK
+	return (MAX_BLOCKS + BLOCK_SIZE - 1) / BLOCK_SIZE;
+}
+
+void write_bitmap() {											// CHECK
+	int blocks = bitmap_blocks();
+	for (int i = 0; i < blocks; i++)
+		fs_write(bitmap + i * BLOCK_SIZE, 1 + i);
+}
+
+void read_bitmap() {
+	int blocks = bitmap_blocks();
+	for (int i = 0; i < blocks; i++)
+		fs_read(bitmap + i * BLOCK_SIZE, 1 + i);
+}
+
+// Allocate a free block from free_block(bitmap)
 int alloc_block() {
 	for (int i = sb.data_start; i < sb.total_blocks; i++) {
 		if (bitmap[i] == 0) {
@@ -84,16 +100,15 @@ int alloc_block() {
 			return i;
 		}
 	}
-
 	// No free blocks found
 	die("No free blocks");
 	return -1;
 }
 
 // Free a block
-void free_block (int b) {		// FINISH	
-	if (b < 0 || b >= sb.total_blocks) return;
-	bitmap[b] = 0;
+void free_block (int b) {	
+	if (b >=  0 && b < sb.total_blocks) 
+		bitmap[b] = 0;
 }
 
 // Allocate a free inode
@@ -109,7 +124,6 @@ int alloc_inode() {
 			return i;
 		}
 	}
-
 	// No inodes found
 	die ("No free inodes");
 	return -1;
@@ -121,17 +135,15 @@ int alloc_inode() {
 //--------------------
 // Used when initializing the file system
 void format_fs() {
-	// Set values of superblock members
+	// Set values of superblock members: SB -> BITMAP -> INODES -> DATA
 	sb.total_blocks = MAX_BLOCKS;
-	sb.inode_start = 2; // block 0: superblock, block 1: free_block
-	// int inodes_blocks = (MAX_INODES * (int)sizeof(Inode) + BLOCK_SIZE - 1) / BLOCK_SIZE;
-	// sb.data_start = sb.inode_start + inode_blocks; 
-	int inode_bytes = MAX_INODES * (int)sizeof(Inode);
-	int inode_blocks = (inode_bytes + BLOCK_SIZE -1) / BLOCK_SIZE;
-	sb.data_start = sb.inode_start + inode_blocks;
+	int bmap_blocks = bitmap_blocks();
+	sb.inode_start = 1 + bmap_blocks; 
+	sb.data_start = sb.inode_start + bmap_blocks;
 
+	
 	// Reserve memmory for Free Blocks and Inodes
-	bitmap = calloc(sb.total_blocks, 1);
+	bitmap = calloc(MAX_BLOCKS, 1);
 	inodes = calloc(MAX_INODES, sizeof(Inode));
 	
 	// Mark superblock and bitmap as used, otherwise unused
@@ -143,10 +155,7 @@ void format_fs() {
 	// Create root directory inode	
 	int root = alloc_inode(); // Allocate ROOT INODE
 	inodes[root].type = TYPE_DIR;
-	inodes[root].size = 0;
-	for (int j = 0; j < 100; j++)
-		inodes[root].direct[j] = -1;
-
+	
 	// Write structures to file system
 	fs_write(&sb, 0); // Write SUPERBLOCK at start
 	fs_write(bitmap, 1); // Write FREE_BLOCKS
@@ -165,6 +174,7 @@ int find_in_dir(int dir_inode, const char* name) {
 
 	for (int i = 0; i < 100; i++) {
 		if (d->direct[i] == -1) continue;
+	
 		fs_read(entries, d->direct[i]);
 
 		for (int j = 0; j < BLOCK_SIZE /sizeof(DirEntry); j++) {
@@ -189,9 +199,10 @@ void add_to_dir(int dir_inode, int child_inode, const char* name) {
 				entries[j].inode = -1;
 				entries[j].name[0] = '\0';
 			}
-			// memset(entries, -1, sizeof(entries));
+			
 			strcpy(entries[0].name, name);
 			entries[0].inode = child_inode;
+			
 			fs_write(entries, d->direct[i]);
 			return;
 		}
@@ -202,6 +213,7 @@ void add_to_dir(int dir_inode, int child_inode, const char* name) {
 			if (entries[j].inode == -1) {
 				strcpy(entries[j].name, name);
 				entries[j].inode = child_inode;
+				
 				fs_write(entries, d->direct[i]);
 				return;
 			}
@@ -234,9 +246,7 @@ int resolve_path(const char* path, int create_dirs) {
 			// Create directory
 			int newinode = alloc_inode();
 			inodes[newinode].type = TYPE_DIR;
-			//memset(inodes[newinode].direct, -1, sizeof(inodes[newinode].direct));
-			for (int j = 0; j < 100; j++) // Initialize
-				inodes[newinode].direct[j] = -1;
+			// Add directory
 			add_to_dir(cur, newinode, token);
 			next = newinode;
 		}
@@ -265,6 +275,7 @@ void list_dir(int inode, int depth) {
 		// loop through current directory
 		for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
 			if (entries[j].inode == -1) continue; // doesn't exist, skip
+			
 			// formating depth spacing
 			for (int k = 0; k < depth; k++) 
 				printf("\t");
@@ -294,10 +305,11 @@ void add_file(const char* host_path, const char* fs_path) {
 	if (!filename) {
 		strcpy(dirpath, "/");
 		filename = (char*)fs_path;
-//		die("Invalid paht");
 	}
-	*filename = 0;
-	filename++;
+	else {
+		*filename = 0;
+		filename++;
+	}
 
 	// Resolve parent directory
 	int dir_inode = resolve_path(dirpath, 1);	
@@ -306,8 +318,7 @@ void add_file(const char* host_path, const char* fs_path) {
 	int newinode = alloc_inode();
 	Inode* node = &inodes[newinode];
 	node->type = TYPE_FILE;
-	node->size = 0;
-	//memset(node->direct, -1, sizeof(node->direct));
+	
 	for (int j = 0; j < 100; j++){ // initialize
 		node->direct[j] = -1;
 	}
@@ -317,8 +328,8 @@ void add_file(const char* host_path, const char* fs_path) {
 	int block_index = 0;
 	while (1) {
 		int r = fread(buf, 1, BLOCK_SIZE, f);
-
-		if (r <= 0) break; // too small
+		if (r <= 0) break; // nothing read 
+		
 		if (block_index >= 100) // too large
 			die("File too large for 100 direct blocks");
 
@@ -341,8 +352,6 @@ void add_file(const char* host_path, const char* fs_path) {
 void extract_file(const char* fs_path) {			
 	// Search file path
 	int inode = resolve_path(fs_path, 0);
-
-	// Was the file found?
 	if (inode < 0) die("File not found");
 	
 	// Access file and check type
@@ -371,7 +380,6 @@ void extract_file(const char* fs_path) {
 void remove_file(const char* fs_path) {		
 	// Seach file path
 	int inode = resolve_path(fs_path, 0);
-	// Was file found?
 	if (inode < 0) die("File not found");
 	
 	// Free all blocks
@@ -381,8 +389,13 @@ void remove_file(const char* fs_path) {
 		free_block(n->direct[i]);
 	}
 
-	// Zero contents of file
-	memset(n, 0, sizeof(Inode));
+	// Zero Inode
+	n->used = 0;
+	n->type = TYPE_FREE;
+	n->size = 0;
+	for (int j = 0; j < 100; j++)
+		n->direct[j];
+	n->indirect = -1;
 }
 
 
@@ -391,15 +404,21 @@ void remove_file(const char* fs_path) {
 //--------------------
 int main (int argc, char* argv[]) {
 	// At leadt 4 arguments will be required
-	if (argc < 4) die ("Use: ./filefs -x path -f file\n");
-		
-	// Read arguments
-	
-	char* cmd = argv[1];
-	char* path = argv[2];
-	char* fsfile = argv[3];
-	if (argc > 4)
+	// if (argc < 4) die ("Use: ./filefs -x path -f file\n");
+	char* cmd = NULL;
+	char* path = NULL;
+	char* fsfile = NULL;
+	// get command line arguments
+	if (argc == 4) {
+		cmd = argv[1];
+		fsfile = argv[3];
+	} else if (argc == 5) {
+		cmd = argv[1];
+		path = argv[2];
 		fsfile = argv[4];
+	} else {
+		die("Use: ./filefs -x path -f file:");
+	}
 	
 	// Atempt to open existing file for read/write in binary
 	if (!(fs = fopen(fsfile, "rb+"))) { 
@@ -431,11 +450,14 @@ int main (int argc, char* argv[]) {
 	}
 	else if (strcmp(cmd, "-r") == 0) {
 		remove_file(path);
+	} else {
+		die("Command not found");
 	}
 
 	// Save file data
 	fs_write(&sb, 0);
-	fs_write(bitmap, 1);
+	write_bitmap();
+//	fs_write(bitmap, 1);
 	fseek(fs, sb.inode_start * BLOCK_SIZE, SEEK_SET);
 	fwrite(inodes, sizeof(Inode), MAX_INODES, fs);
 
