@@ -46,7 +46,7 @@ typedef struct {
 //--------------------
 // Globals
 //--------------------
-FILE *fs; // Filesystem
+FILE* fs; // Filesystem
 Superblock sb; // Superblock
 int* bitmap; // Free blocks
 Inode *inodes; //Inodes
@@ -291,7 +291,11 @@ void add_file(const char* host_path, const char* fs_path) {
 	char dirpath[MAX_FILENAME];
 	strcpy(dirpath, fs_path);
 	char* filename = strrchr(dirpath, '/');
-	if (!filename) die("Invalid paht");
+	if (!filename) {
+		strcpy(dirpath, "/");
+		filename = (char*)fs_path;
+//		die("Invalid paht");
+	}
 	*filename = 0;
 	filename++;
 
