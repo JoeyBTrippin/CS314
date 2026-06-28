@@ -170,16 +170,20 @@ void format_fs() {
 // Searches directories for a file with a matching name and returns its inode index'
 int find_in_dir(int dir_inode, const char* name) {
 	Inode *d = &inodes[dir_inode];
-	DirEntry entries[BLOCK_SIZE / sizeof(DirEntry)];
+	unsigned char buf[BLOCK_SIZE];
+	DirEntry* entries[BLOCK_SIZE / sizeof(DirEntry)];
 
 	for (int i = 0; i < 100; i++) {
 		if (d->direct[i] == -1) continue;
 	
-		fs_read(entries, d->direct[i]);
+		fs_read(buf, d->direct[i]);
 
 		for (int j = 0; j < BLOCK_SIZE /sizeof(DirEntry); j++) {
-			if ( (entries[j].inode != -1) && (strcmp(entries[j].name, name) == 0) )
-				return entries[j].inode;
+			// Bound check
+			if ( (entries[j]->inode < 0) || entries[j]->inode >= MAX_INODES) continue;
+
+			if ( (entries[j]->inode != -1) && (strcmp(entries[j]->name, name) == 0) )
+				return entries[j]->inode;
 		}
 	}
 	return -1;
@@ -188,33 +192,34 @@ int find_in_dir(int dir_inode, const char* name) {
 // Add a new entry to a directory
 void add_to_dir(int dir_inode, int child_inode, const char* name) {
 	Inode* d = &inodes[dir_inode];
+	unsigned char buf[BLOCK_SIZE];
 	DirEntry entries[BLOCK_SIZE / sizeof(DirEntry)];
 	
 	for (int i = 0; i < 100; i++) {
-		// Allocate a new block if necessary
+		// CASE 1: Allocate a new block if necessary
 		if (d->direct[i] == -1) {
 			d->direct[i] = alloc_block();
-			// initialize entries
+			// initialize empty block 
 			for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
 				entries[j].inode = -1;
 				entries[j].name[0] = '\0';
 			}
-			
+			// first entry
 			strcpy(entries[0].name, name);
 			entries[0].inode = child_inode;
 			
-			fs_write(entries, d->direct[i]);
+			fs_write(buf, d->direct[i]);
 			return;
 		}
 
-		// Reuse empty slot
-		fs_read(entries, d->direct[i]);
+		// CASE 2: Reuse empty block
+		fs_read(buf, d->direct[i]);
 		for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
 			if (entries[j].inode == -1) {
 				strcpy(entries[j].name, name);
 				entries[j].inode = child_inode;
 				
-				fs_write(entries, d->direct[i]);
+				fs_write(buf, d->direct[i]);
 				return;
 			}
 		}
@@ -263,28 +268,35 @@ int resolve_path(const char* path, int create_dirs) {
 // List contents of a directory
 //--------------------
 void list_dir(int inode, int depth) {
-	Inode* d = &inodes[inode]; // first inode
-	DirEntry entries[BLOCK_SIZE / sizeof(DirEntry)]; // array to hold directories
+	// Bound check 
+	if ( (inode < 0) || inode >= MAX_INODES) return;
+	
+	Inode* d = &inodes[inode]; 
+	unsigned char buf[BLOCK_SIZE];
+	DirEntry* entries[BLOCK_SIZE / sizeof(DirEntry *)]; // array to hold directories
 	
 	// loop through directories
 	for (int i = 0; i < 100; i++) {
 		if (d->direct[i] == -1) continue; // doesn't exist, skip
 		// read current directory
-		fs_read(entries, d->direct[i]);
+		fs_read(buf, d->direct[i]);
 		
 		// loop through current directory
 		for (int j = 0; j < BLOCK_SIZE / sizeof(DirEntry); j++) {
-			if (entries[j].inode == -1) continue; // doesn't exist, skip
+			if (entries[j]->inode == -1) continue; // doesn't exist, skip
+			
+			// Bound check
+			if ( (entries[j]->inode < 0) || (entries[j]->inode >= MAX_INODES)) continue;
 			
 			// formating depth spacing
 			for (int k = 0; k < depth; k++) 
 				printf("\t");
-			printf("%s\n", entries[j].name); // print entry
+			printf("%s\n", entries[j]->name); // print entry
 			
 			// if entry is anothe directory
-			if (inodes[entries[j].inode].type == TYPE_DIR)
+			if (inodes[entries[j]->inode].type == TYPE_DIR)
 				// recurrsivly call to list this directory
-				list_dir(entries[j].inode, depth + 1);
+				list_dir(entries[j]->inode, depth + 1);
 		}
 	}
 }
@@ -394,7 +406,7 @@ void remove_file(const char* fs_path) {
 	n->type = TYPE_FREE;
 	n->size = 0;
 	for (int j = 0; j < 100; j++)
-		n->direct[j];
+		n->direct[j] == -1;
 	n->indirect = -1;
 }
 
@@ -434,7 +446,7 @@ int main (int argc, char* argv[]) {
 
 	// Load file system data and set file pointer
 	fs_read(&sb, 0);
-	fs_read(bitmap, 1);
+	read_bitmap();
 	fseek(fs, sb.inode_start * BLOCK_SIZE, SEEK_SET);
 	fread(inodes, sizeof(Inode), MAX_INODES, fs);
 	

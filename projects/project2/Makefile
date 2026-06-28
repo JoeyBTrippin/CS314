@@ -6,3 +6,4 @@ reg:
 
 clean:
 	rm filefs
+	rm example
