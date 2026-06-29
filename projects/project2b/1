@@ -78,15 +78,11 @@ void set_file_pointer (int block_index) {
 void new_filesys() {
 	printf("new_filesys() enter\n");
 	sb.total_blocks = MAX_BLOCKS;
-	
+
 	int bitmap_blocks = (sizeof(bitmap) + BLOCK_SIZE - 1) / BLOCK_SIZE; // protects from overflow
 	int inode_blocks = (sizeof(inodes) + BLOCK_SIZE - 1) / BLOCK_SIZE; 
-
-
 	printf("bitmap blocks = %d\n", bitmap_blocks);
 	printf("inode_blocks = %d\n", inode_blocks);
-	printf("max blocks = %d\n", MAX_BLOCKS);	
-
 	int blocks_used = 1 + bitmap_blocks + inode_blocks;
 	printf("blocks used %d\n", blocks_used);
 	sb.num_free = MAX_BLOCKS - blocks_used;
@@ -163,7 +159,7 @@ int find_free_inode() {
 
 
 // find an inode given file name
-int find_inode (char* file_name) {
+	int find_inode (char* file_name) {
 	for (int i = 0; i < MAX_INODES; i++) {
 		if ((int*)inodes[i].name == (int*)file_name)
 			return i;
@@ -177,7 +173,6 @@ int  allocate_blocks() {
 	for (int i = 0; i < MAX_BLOCKS; i++) {
 		if (bitmap[i] == FREE) {
 			bitmap[i] = USED;
-			printf("block found: %d\n", i);
 			return i;
 		}
 	}
@@ -188,14 +183,12 @@ int  allocate_blocks() {
 
 // Read file
 void read_file(char* filename, int node) {
-	printf("filename = %s   inode = %d\n", filename, node);
-
 	// set node files
 	printf("read_file() enter\n");
 	strncpy(inodes[node].name, filename, MAX_FILENAME);
 	inodes[node].free = USED;
 	inodes[node].type = TYPE_FILE;
-	
+
 	// open file
 	FILE* file;
 	if (!(file = fopen(filename, "rb"))) {
@@ -222,7 +215,7 @@ void read_file(char* filename, int node) {
 	}
 	inodes[node].size = size;
 	free(buffer);
-	
+
 	fclose(file);
 
 	printf("read_file() exit\n");
@@ -235,9 +228,7 @@ void write_directory () {
 
 // add file
 void add_file(char* path) {
-	printf("add_file() enter: path = %s\n", path); // TEST
-	if (path[0] != '/')
-		die("/path\n");
+	printf("add_file() enter\n"); // TEST
 	char* token = strtok(path, "/");
 	
 	while (token != NULL) {
@@ -256,7 +247,7 @@ void add_file(char* path) {
 				int node_index = find_inode(token);
 				if (node_index < 0) { // directory not in file
 			
-					return;
+
 				}
 			}	
 
@@ -304,7 +295,7 @@ int main(int argc, char* argv[]) {
 	char* cmd = argv[1];
 	if (strcmp(cmd, "-a") == 0 ){
 		printf("case 'a' selected\n");
-		add_file(argv[2]);
+		add_file(argv[argc-1]);
 	}
 	/*
 	long opt
