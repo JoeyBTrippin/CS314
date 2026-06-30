@@ -97,6 +97,7 @@ void check_inodes(int start, int stop, int d) {
 				printf(" %d ", inodes[i].direct[j]);
 			printf("indirect = %d", inodes[i].indirect);
 		}
+		printf("\n");
 	}
 }
 
@@ -179,6 +180,29 @@ int search_dir(char* filename, int parent) {
 
 }
 
+int add_dir(char* name, int parent) {
+	printf("Enter: add_dir()\n");	
+	
+	for (int i = 0 ; i < 100; i++) {
+		if (inodes[parent].direct[i] == 0) {
+			printf("direct spot found %d\n", i);
+			// set up new Inode
+			int new_node = find_free_inode();
+			strcpy(inodes[new_node].name, name);
+			//inodes[new_node].name = name;
+			inodes[new_node].free = USED;
+			inodes[new_node].type = TYPE_DIR;
+			
+			// update parent
+			inodes[parent].size++;
+			inodes[parent].direct[i] = new_node;
+			return new_node;
+		}
+	}
+
+	die(strcat(inodes[parent].name, " directory is full"));
+	 return -1;
+}
 
 /* FILE HELPERS */
 
@@ -246,21 +270,20 @@ int write_file(char* filename, int node) {
 void new_filesys() {
 	// TEST
 	printf("new_filesys() enter\n");
-	sb.total_blocks = MAX_BLOCKS;
 	
 	int bitmap_blocks = (sizeof(bitmap) + BLOCK_SIZE - 1) / BLOCK_SIZE; // protects from overflow
 	// int inode_blocks = (sizeof(inodes) + BLOCK_SIZE - 1) / BLOCK_SIZE; 
 	int blocks_used = 1 + bitmap_blocks + MAX_INODES;
 	
 	// Init Super block values
-//	sb.num_free = MAX_BLOCKS - blocks_used;
-//	sb.size = blocks_used;
-//	sb.inode_start = 1 + bitmap_blocks;
-//	sb.data_start = 1 + bitmap_blocks + MAX_INODES;
+	sb.total_blocks = MAX_BLOCKS;
+	sb.num_free = MAX_BLOCKS - blocks_used;
+	sb.size = blocks_used;
+	sb.inode_start = 1 + bitmap_blocks;
+	sb.data_start = 1 + bitmap_blocks + MAX_INODES;
 
 	// Write root inode
 	strcpy(inodes[0].name, "root");
-//	inodes[1].name = "root";
 	inodes[0].free = USED;
 	inodes[0].type = TYPE_DIR;
 	inodes[0].size = 0;
@@ -276,38 +299,36 @@ void new_filesys() {
 		bitmap[i] = USED;
 	printf("new_filesys(): %d blocks used, %d free\n", blocks_used, sb.num_free);
 
-	check_sb();
-	check_inodes(0, 10, 0);
-	check_bitmap(0, 190);
-	// TEST
-//	printf("sb.max blocks = %d = %d = MAX_BLOCKS\n", sb.total_blocks, MAX_BLOCKS);	
-//	printf("bitmap blocks = %d\n", bitmap_blocks);
-//	printf("blocks used %d = %d \n", blocks_used, 1 + MAX_INODES + bitmap_blocks);
-//	printf("inode start %d = %d\n", sb.inode_start, blocks_used - MAX_INODES);
-//	printf("data start %d = %d\n", sb.data_start, blocks_used);
-//	for (int i =0; i < blocks_used + 1; i++)
-//		printf(" %d ", bitmap[i]);
-//	printf("\nnew_filesys() exit\n");
+//	check_sb();
+//	check_inodes(0, 10, 0);
+//	check_bitmap(0, 190);
 }
 
 
 // Load existing file system
 void load_filesys() {
-	
+	printf("Enter load_filesys()\n");	
 	// Read Superblock data
-	if (fread(&sb, BLOCK_SIZE, 1, fs) != 1)
+	if (fread(&sb, sizeof(sb), 1, fs) != 1)
 		die("reading Superblock in load_filsys()");
 	
 	// Initialize bitmap
-	if (fread(bitmap, MAX_BLOCKS, 1, fs) != 1)
+	set_file_pointer(1);
+	if (fread(bitmap, sizeof(bitmap), 1, fs) != 1)
 		die("reading bitmap in load_filesys()");
 
 	// read inodes
+	set_file_pointer(sb.inode_start);
 	for (int i = 0; i < MAX_INODES; i++) {
-		set_file_pointer(1 + sizeof(bitmap) + i);
+		set_file_pointer(sb.inode_start + i);
 		//inodes[i] = calloc(1, sizeof(inodes[i]));
 		
 	}
+	
+	check_sb();
+	check_bitmap(0,170);
+	check_inodes(0,3,0);
+	printf("Exit load_filesys()\n");
 } 	
 
 
@@ -348,23 +369,24 @@ void add_file(int parent_inode, char* path) {
 				inodes[parent_inode].size++;
 				return;
 			
-			} else{ // not last in path, must be a directory
-
+			} else { // not last in path, must be a directory
+				printf("entering file %s", token);
+				parent_inode = cur_inode;
 			}
-
+			continue;
 			// TEST
 			die("Nothing done");	
 			// more objects on path, progess along path
-			parent_inode = cur_inode;
+			//parent_inode = cur_inode;
 		
 		} else { // NOT found in directory
 			//TEST
-			printf("Not foudn in directory\n");
+			printf("Not found in directory\n");
 
 			if (next == NULL) { // last of path, add inode to direct and write file
 				// TEST
-				printf("Last of path\n");
-				
+				printf("Last in path\n");
+						
 				// find open direct map
 				int direct = 0;
 				if ( (direct = inodes[parent_inode].size) > 100 )
@@ -376,14 +398,22 @@ void add_file(int parent_inode, char* path) {
 				sb.size++;
 				// Update parent Inode
 				inodes[parent_inode].size++;
+				
+				
 				return;
-			}	
+			} else { // NOT found. NOT last in path. Must be DIRECTORY
+				// Add directory and step through path
+				parent_inode = add_dir(token, parent_inode);
+				token = next;
+				continue;
+					
+			}
 					
 
 		}
 		die("NO PATH TAKEN in add_file()\n");
 		return;
-	}
+}
 			
 
 	
@@ -451,7 +481,7 @@ int main(int argc, char* argv[]) {
 	if ( !(fs = fopen(argv[argc-1], "rb+")) ) {
 		fs = fopen(argv[argc-1], "wb+");
 		ftruncate(fileno(fs), FS_SIZE);
-		new_filesys();
+		;new_filesys();
 	} else {
 		load_filesys();
 	}
@@ -466,7 +496,7 @@ int main(int argc, char* argv[]) {
 	printf("\nReturn to main\n");
 	check_sb();
 	check_bitmap(0, 190);
-	check_inodes(0,3,1);
+	check_inodes(0,3,0);
 	// Write Superblock, bitmap, and Inode to file system
 		set_file_pointer(0);
 		fwrite(&sb,sizeof(sb), 1, fs);

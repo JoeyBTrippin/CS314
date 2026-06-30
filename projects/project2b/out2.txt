@@ -1,0 +1,58 @@
+Enter load_filesys()
+CHECK SUPERBLOCK:
+total blocks = 20480   num_free = 20310   size = 170   inode_start = 41   data start = 169
+CHECK BITMAP
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 
+INODE CHECK
+#0: name =    free = 0   type = 0   size = 0
+
+#1: name =    free = 0   type = 0   size = 0
+
+#2: name =    free = 0   type = 0   size = 0
+
+Exit load_filesys()
+case 'a' selected
+add_file() enter: path = /test2.txt
+Not found in directory
+Last in path
+filename = test2.txt   inode = 0
+read_file() enter
+block found: 170
+buffer = TEST 2: This too is just a test, you've made it farther and therefore we have a longer file for you. Isn't that great.
+
+TEST 2: This too is just a test, you've made it farther and therefore we have a longer file for you. Isn't that great.
+
+Return to main
+CHECK SUPERBLOCK:
+total blocks = 20480   num_free = 20309   size = 171   inode_start = 41   data start = 169
+CHECK BITMAP
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 
+INODE CHECK
+#0: name = test2.txt   free = 1   type = 1   size = 1
+
+#1: name =    free = 0   type = 0   size = 0
+
+#2: name =    free = 0   type = 0   size = 0
+
+
+pointer at 86528
+TEST FILE 1: this is just a test.
+
+pointer at 87040
+TEST 2: This too is just a test, you've made it farther and therefore we have a longer file for you. Isn't that great.
+
+pointer at 87552
+
+pointer at 88064
+
+pointer at 88576
+
+pointer at 89088
+
+pointer at 89600
+
+pointer at 90112
+
+pointer at 90624
+
+pointer at 91136

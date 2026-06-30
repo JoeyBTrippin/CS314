@@ -1,0 +1,46 @@
+new_filesys() enter
+new_filesys(): 169 blocks used, 20311 free
+case 'a' selected
+add_file() enter: path = /test1.txt
+Not found in directory
+Last in path
+filename = test1.txt   inode = 1
+read_file() enter
+block found: 169
+buffer = TEST FILE 1: this is just a test.
+
+TEST FILE 1: this is just a test.
+
+Return to main
+CHECK SUPERBLOCK:
+total blocks = 20480   num_free = 20310   size = 170   inode_start = 41   data start = 169
+CHECK BITMAP
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 
+INODE CHECK
+#0: name = root   free = 1   type = 2   size = 1
+
+#1: name = test1.txt   free = 1   type = 1   size = 0
+
+#2: name =    free = 0   type = 0   size = 0
+
+
+pointer at 86528
+TEST FILE 1: this is just a test.
+
+pointer at 87040
+
+pointer at 87552
+
+pointer at 88064
+
+pointer at 88576
+
+pointer at 89088
+
+pointer at 89600
+
+pointer at 90112
+
+pointer at 90624
+
+pointer at 91136
