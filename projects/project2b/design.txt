@@ -1,0 +1,46 @@
+This project implements an Inode file system where data is saved to disk. The file system is a truncated file of 
+FS_SIZE = 10 * 1024 * 1024 ~ 10 MB. Size was chosen by trying to make it relevent to block size = 512.
+We were instructed to use 4 types of structures to implement this system. These are Super block, free block list, Inode, and data blocks
+I will talk about how a designed and handle each below and in the process discuss the overall design. I suck at writing though so don't
+judge grammer and spelling too harshly.
+
+Superblock: 
+	unsigned int total_blocks: stores the total number of blocks FS_SIZE / BLOCK_SIZE = 20,480.
+	int num_free: initialized to MAX_BLOCKS - blocks_used. where blocks_used = 1 + sizeof(bitmap) / BLOCK_SIZE + MAX_INODES.
+	int size: initialized to blocks used. Keeps track of how many blocks are in use. While I do update this, it's not really necassary
+		because I have other bounds.
+	int inode_start: initialized to 1 + size(bitmap). Has constant value and is simply used for simplicity of writing Inodes to file.
+	int data_start: initilized to blocks_ used. Also constant and used for simplicity of reading and writing blocks to file system.  
+
+Free block list: char bitmap[MAX_BLOCKS] 
+	We were told we could implement this as a bitmap. I had trouble gitting a bitmap to work correctly so I instead
+	used what would be a bytemap, though I'm now realizing I kept the name bitmap and I'm not changing it now. As a bytemap
+	more space is wasted since it still only holds 0/1 for FREE/USED. Thoguh I map this to memory continuously. Thus the size is
+	sizeof(bitmap) / BLOCK_SIZE rounded up to the nearest bitmap. 
+ 
+Inodes: I store MAX_INODES = 128 in an array of the following struct type.
+	char name[MAX_FILENAME]: obvious use.
+	char type: 3 types 0/1/2 - TYPE_FREE/TYPE_FILE/TYPE_DIR. Keeps track of what is being stored in Inode. 
+		Note: I originally had a member:free. But towards the end started wondering while I was updating type and free together. 
+		so type also works as a free flag.
+	char int size: keeps track of the number of blocks being used.
+	int direct[MAX_DIRECT]: "pointers???" kind of. Basically it holds the Inode index # which maps it to an inode in my array.
+		I may get introuble here because I set MAX_DIRECT = 60 != 100. I did this so that sizeof(Inode) < BLOCK_SIZE.
+		With files, run over is mapped to indirect Inode. Though it does limit files to only 60 entires since I now realize I didn't take
+		that into account, so don't take too many points off because at least I'm honest. Who has more than 60 files in a directory
+		anyways, that's just poor orginization on the uses part so take points off them.
+	int indirect: Also a "pointer???". Behaves similar to direct except there is only one of them.
+
+All the above struct are initilized/read at the very begining of the program. Thus stored in running memory for the diretion.
+While it increase the overhead of the program, I justified it by increased speed and continuity. Speed because instead of working a bunch
+of reads/writes while changing between nodes, I instead just have one for the bitmap (sinces its continuous) and MAX_INODES for inodes.
+And yes thats alot of reading and writing for the inodes still, but I also only have 1 for the bitmap instead of MAX_BLOCKS many. Of
+course you're saying "well why not just read the bitmap in at the beginning and only reading inodes when you have to?" ahaha, that where 
+continuity comes in. Since changes made to Inodes mid-program are not actually stored in the file system until the end of the program, 
+if someone tried to write a 30,000 * 512 byte file, which would break the bounds, then the system would crash and none of the changes
+would be saved to Inodes or bitmap. Granted, they would have written to every data file in the system. But the Inodes would not save the
+pointers to those blocks and the bitmap would not be updated. Thus none of the changes actually happen, whoop whoop.
+
+
+Commands: the major actions. I do use a lot of helper funcntions which are orginized nicelly and self explanitory for the most part
+	add file: to add a file
