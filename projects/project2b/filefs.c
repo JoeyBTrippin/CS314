@@ -60,6 +60,8 @@ char bitmap[MAX_BLOCKS];
 //#define BMAP_BLOCKS (sizeof(bitmap) / BLOCK_SIZE)
 //#define MAX_DATA_BLOCKS (MAX_BLOCKS - (1 + BMAP_BLOCKS + MAX_INODES))
 
+// PROTOTYPES NEEDED
+void free_file(int node); 
 
 //----------------------------------------
 // ERROR TESTING
@@ -130,13 +132,13 @@ int find_free_inode() {
 // find an inode given file name
 int find_inode (char* file_name) {
 	for (int i = 0; i < MAX_INODES; i++) {
-		if ((int*)inodes[i].name == (int*)file_name)
+		if (strcmp(inodes[i].name, file_name) == 0)
 			return i;
 	}
 	return -1;
 }
 
-
+/*
 void clean_inodes() {
 	for (int i = 0; i < MAX_INODES; i++) {
 		if (inodes[i].size < 1) {
@@ -144,7 +146,7 @@ void clean_inodes() {
 		}
 	}
 }
-
+*/
 
 
 /* BLOCK HELPERS */
@@ -187,6 +189,12 @@ int search_dir(char* filename, int parent) {
 	int cur = 0;
 	for (int i = 0; i < MAX_DIRECT; i++) {
 		cur = inodes[parent].direct[i];
+		// protections check
+		if (cur <= 0) continue;
+		if (cur >= MAX_INODES) continue;
+		if (inodes[cur].type == TYPE_FREE) continue;
+		
+		// If we have found this file, return dir location
 		if (strcmp(inodes[cur].name, filename) == 0) 
 			return i;
 	}
@@ -197,10 +205,11 @@ int search_dir(char* filename, int parent) {
 
 int search_open_dir(int parent) {
 	for (int i = 0; i < MAX_DIRECT; i++) {
-		int cur_node = inodes[parent].direct[i];
-		if ( (inodes[cur_node].type = TYPE_FREE) ) {
+		//int cur_node = inodes[parent].direct[i];
+		//if ( inodes[cur_node].type == TYPE_FREE ) 
+		if (inodes[parent].direct[i] == 0)
 			return i;
-		}
+		
 	}
 	die( strcat(inodes[parent].name, " full") );
 	return -1;
@@ -230,6 +239,48 @@ int add_dir(char* name, int parent) {
 }
 
 
+int is_empty_dir(int node) {
+	if (inodes[node].type != TYPE_DIR)
+		return 0;
+	
+	for (int i = 0; i < MAX_DIRECT; i++) {
+		int child = inodes[node].direct[i];
+		if ( (child > 0) && (child < MAX_INODES) && (inodes[child].type != TYPE_FILE) ) {		
+			// Found a child 
+			return 0;
+		}
+	}
+	// NO child found
+	return 1;
+}
+
+
+void free_directory(int node) {
+	// Clear direct links
+	for (int i = 0; i < MAX_DIRECT; i++) {
+		int child = inodes[node].direct[i];
+		
+		// check bound
+		if ( (child <= 0) || (child >= MAX_INODES) )
+			continue;
+		
+		// if free, skip
+		if (inodes[child].type == TYPE_FREE)
+			continue;
+		// if directory, recursion
+		if (inodes[child].type == TYPE_DIR)
+			free_directory(child);
+		else
+			free_file(child);
+
+		inodes[node].direct[i] = 0;
+	}
+
+	// free the directory
+	strcpy(inodes[node].name, "");
+	inodes[node].type = TYPE_FREE;
+	inodes[node].size = 0;
+}
 
 /* FILE HELPERS */
 
@@ -456,12 +507,10 @@ void add_file(int parent_inode, char* path) {
 //				printf("Last in path\n");
 						
 				// find open direct map
-				int direct = 0;
-				if ( (direct = inodes[parent_inode].size) > MAX_DIRECT  )
-					die( strcat(inodes[parent_inode].name, " full") );
+				int direct = search_open_dir(parent_inode);
+//				if ( (direct > MAX_DIRECT  )
+//					die( strcat(inodes[parent_inode].name, " full") );
 						
-			
-				
 				inodes[parent_inode].direct[direct] = write_file(token, -1);
 			//	inodes[cur_inode].direct[direct] = write_file(token, -1);
 				//inodes[parent_inode].direct[direct] = write_file(token, 1);
@@ -475,7 +524,7 @@ void add_file(int parent_inode, char* path) {
 				return;
 			} else { // NOT found. NOT last in path. Must be DIRECTORY
 				// MAP INODE TO DIRECT ARRAY OF CURRENT
-				parent_inode = add_dir(token,cur_inode);
+				parent_inode = add_dir(token,parent_inode);
 				token = next;
 				continue;
 					
@@ -490,27 +539,43 @@ void add_file(int parent_inode, char* path) {
 }
 
 // remove file
-void remove_file(char* path) {
+void remove_file(char* path) { 
 //	printf("remove_file enter: %s\n", path);
-	if (path[0] != '/')
-		die("/path\n");
+
+	// tracking for deletion
+	int path_nodes[MAX_INODES];
+	int path_dirs[MAX_INODES];
+	int depth = 0;
+
+//	if (path[0] != '/')
+//		die("/path\n");
 	// first item off path
 	char* token = strtok(path, "/");
-	// start in root Inode
+	// start at root Inode
 	int cur_node = 0;
-	int parent_node = 0;
-	int dir = 0;
-	// while we can still grab another item off the path
+	// int parent_node = 0;
+	// int dir = 0;
+	// Follow path 
 	while(token != NULL) {
-		char* next = strtok(NULL, "/");
+		path_nodes[depth] = cur_node; // store current inode
+		
+		// find in direct
+		int dir = search_dir (token, cur_node);
+		// char* next = strtok(NULL, "/");
 		// search directory for current token
-		parent_node = cur_node;
-		dir = search_dir(token, cur_node);
+		// parent_node = cur_node;
+		// dir = search_dir(token, cur_node);
 		if (dir < 0)  
 			die( strcat(token, "could not be located") );
+	
+		// Update tracker
+		path_dirs[depth] = dir;
+		depth++;
 		
-		cur_node = inodes[parent_node].direct[dir];
+		// Move to child
+		cur_node = inodes[cur_node].direct[dir];
 		// If not the last object on path, current object must be directory 
+		/*
 		if (next != NULL) {
 			if (inodes[cur_node].type == TYPE_FREE)
 				die(strcat(token, " does not exist"));
@@ -518,15 +583,62 @@ void remove_file(char* path) {
 				die(strcat(token, " is a file"));
 		}
 		token = next;
-//		token = strtok(NULL, "/");
+		*/
+		// Grab next on path
+		token = strtok(NULL, "/");
 	}
+ 	// found file/directory to be removed
+	int target = cur_node;
+	int parent = path_nodes[depth -1];
+	int parent_dir_index = path_dirs[depth -1];
 	
+	// Delete target
+	if (inodes[target].type == TYPE_DIR)
+		free_directory(target);
+	else
+		free_file(target);
+
+	// Remove target entry from parent directory
+	inodes[parent].direct[parent_dir_index] = 0;
+	inodes[parent].size--;
+	
+	// Run back up path to delete empty directories
+	for (int i = depth-1; i >=0; i--) {
+		int node = path_nodes[i];
+
+		if (node == 0) // never delete root
+			break;
+		
+		// A non-empty directory is found. STOP
+		if (!is_empty_dir(node))
+			break;
+		
+		// Directory is empty and not root. DELETE
+		free_directory(node);
+
+		// Remove from parent
+		int parent_node = path_nodes[i-1];
+		for (int j = 0; j < MAX_DIRECT; j++) {
+			if (inodes[parent_node].direct[j] == node) {
+				inodes[parent_node].direct[j] = 0;
+				inodes[parent_node].size--;
+				break;
+			}
+		}
+	}
+	/*
 	free_file(cur_node);
 	// deciment parten size;
 	inodes[parent_node].size--;
-
+	inodes[parent_node].direct[dir] = 0;
+	
+	// If parent is NOT the root and the directory is empty, delete
+	if ( (parent_node != 0) && is_empty_dir(parent_node) )
+	free_directory(parent_node0);
+	*/
 //	printf("remove_file exit\n");
 }
+
 
 
 
@@ -588,22 +700,25 @@ void list_dir(int node, int depth) {
 	for ( int i = 0; i < MAX_DIRECT; i++){
 		cur = inodes[node].direct[i];
 		// empty so skip
-		if (cur < 1)
+		if (cur <= 0)
 			continue;
-		
 		// garbage check
 		if (cur >= MAX_INODES)
 			continue;
-
+		// check current inode exist
+		if (inodes[cur].type == TYPE_FREE)
+			continue;
 		
-		// indent and print
+		// Identation
 		for(int j = 0; j < depth; j++)
 			printf("\t");
-		printf("%s", inodes[cur].name);
+
+		// printf name
+		printf("%s\n", inodes[cur].name);
 
 		// if is directory, recursive call
 		if (inodes[cur].type == TYPE_DIR) { // step in
-			list_dir(cur, depth++);
+			list_dir(cur, depth + 1);
 		}
 
 	}
@@ -642,7 +757,7 @@ int main(int argc, char* argv[]) {
 	}
 	
 
-	clean_inodes();
+//	clean_inodes();
 //	printf("\nReturn to main\n");
 //	check_sb();
 //	check_bitmap(0, 190);
