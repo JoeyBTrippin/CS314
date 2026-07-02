@@ -42,5 +42,15 @@ would be saved to Inodes or bitmap. Granted, they would have written to every da
 pointers to those blocks and the bitmap would not be updated. Thus none of the changes actually happen, whoop whoop.
 
 
-Commands: the major actions. I do use a lot of helper funcntions which are orginized nicelly and self explanitory for the most part
-	add file: to add a file
+The actual process for adding, removing, and extracting files, as well as listing directories are all extensivily commented on through
+out filefs.c. I believe it should say enough to how I implemented these functions. some of the helper functions may be less commented 
+in which case it's probably pretty easy to see what I did. Thus I will not go farther into walking through my code because I'd just be
+repeating myself. Also I never really liked writting papers that much. Just note that all sizes are calcualted in respect to block 
+numbers used, while all 'pointers' are Inodes indecie or block indicies with respect to whether the holder of the pointer is a directory
+or file Inode.
+
+Also, after just taking the test it appears you may have wanted a DirEntry struct seperate from the Inodes. I did not do this and
+instead just tracked whether an Inode was Free, Directory, or File based on type. But you can see how I treate File Inodes an Directory
+Inodes differently in the HELPER FUNCTIONS SECTIONS labled FILE HELPERS and DIRECTORY HELPERS. While the section INODE HELPERS are for
+general actions such as fine/free an Inode which takes place for both files and directories.
+	
